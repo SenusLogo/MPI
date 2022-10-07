@@ -29,13 +29,13 @@ int main(int* argc, char** argv)
 		return 1;
 	}
 
-	number = new double[2];
+	number = new double[2]; // new memory for each processor
 
 	if (thread == ZERO_PROCCESSOR)
 	{
 		cout << "Enter number: ";
 		for (int i(0); i < 2; i++)
-			cin >> number[i];
+			cin >> number[i]; // enter 2 number
 
 		cout << "a = " << number[0] << "\nb = " << number[1] << endl;
 
