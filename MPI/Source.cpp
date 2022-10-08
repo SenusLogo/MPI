@@ -1,6 +1,10 @@
 #include <iostream>
 #include <Windows.h>
 #include <time.h>
+#include <conio.h>
+#include <string>
+#include <vector>
+
 #include "mpi.h"
 
 using namespace std;
@@ -177,7 +181,49 @@ int main(int* argc, char** argv)
 	SetConsoleCP(1251);
 	SetConsoleOutputCP(1251);
 
-	problem_2(argc, argv);
+	/*vector<string> menu = { "Практика 1", "Практика 2", "Практика 3", "Практика 4" };
+
+	int iter = 0;
+	int choise = 0;
+
+	_getch();
+	do
+	{
+		system("cls");
+		for (int i(0); i < menu.size(); i++)
+			cout << menu.at(i).c_str() << (i == choise ? "  <--- " : "") << endl;
+
+		iter = _getch();
+
+		switch (iter)
+		{
+		case 72:
+			choise = choise == 0 ? 3 : choise - 1;
+			break;
+		case 80:
+			choise = choise == 3 ? 0 : choise + 1;
+			break;
+		}
+
+	} while (choise != 13);
+
+	switch (choise)
+	{
+	case 0:
+		problem_1(argc, argv);
+		break;
+	case 1:
+		problem_2(argc, argv);
+		break;
+	case 2:
+		problem_3(argc, argv);
+		break;
+	case 3:
+		problem_4(argc, argv);
+		break;
+	}*/
+
+	problem_4(argc, argv);
 
 	return 1;
 }
