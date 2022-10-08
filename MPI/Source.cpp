@@ -14,8 +14,6 @@ void problem_1(int* argc, char** argv)
 
 	MPI_Init(argc, &argv);
 
-	MPI_Status status;
-
 	MPI_Comm_rank(MPI_COMM_WORLD, &thread);
 	MPI_Comm_size(MPI_COMM_WORLD, &thread_size);
 
@@ -32,7 +30,7 @@ void problem_2(int* argc, char** argv)
 
 	MPI_Init(argc, &argv);
 
-	double A[2];
+	double A[2] = { 0, 0 };
 
 	MPI_Status status;
 
@@ -121,8 +119,6 @@ int problem_4(int* argc, char** argv)
 
 	MPI_Init(argc, &argv);
 
-	MPI_Status status;
-
 	MPI_Comm_rank(MPI_COMM_WORLD, &thread);
 	MPI_Comm_size(MPI_COMM_WORLD, &thread_size);
 
@@ -134,8 +130,8 @@ int problem_4(int* argc, char** argv)
 
 	MPI_Bcast(&size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-	A = new int[size];
-	B = new int[size];
+	A = new int[size]; memset(A, 0, size * sizeof(int));
+	B = new int[size]; memset(B, 0, size * sizeof(int));
 
 	if (thread == ZERO_PROCCESSOR)
 	{
@@ -150,7 +146,7 @@ int problem_4(int* argc, char** argv)
 
 	MPI_Scatter(A, size / thread_size, MPI_INT, B, size / thread_size, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
 
-	int* local_sum_all = new int[thread_size];
+	int* local_sum_all = new int[thread_size]; memset(local_sum_all, 0, thread_size * sizeof(int));
 	int local_sum = 0;
 
 	for (int j(0); j < size / thread_size; j++)
@@ -181,7 +177,7 @@ int main(int* argc, char** argv)
 	SetConsoleCP(1251);
 	SetConsoleOutputCP(1251);
 
-	problem_3(argc, argv);
+	problem_2(argc, argv);
 
 	return 1;
 }
