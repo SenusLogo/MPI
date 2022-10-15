@@ -187,9 +187,6 @@ int problem_5(int* argc, char** argv)
 	int* a;
 	int* b;
 
-	int size = 0;
-	int sum = 0;
-
 	int thread, thread_size;
 
 	MPI_Init(argc, &argv);
@@ -197,7 +194,7 @@ int problem_5(int* argc, char** argv)
 	MPI_Comm_rank(MPI_COMM_WORLD, &thread);
 	MPI_Comm_size(MPI_COMM_WORLD, &thread_size);
 
-	size = int(pow(thread_size, 2));
+	int size = int(pow(thread_size, 2));
 
 	MPI_Bcast(&size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
