@@ -4,6 +4,7 @@
 #include <conio.h>
 #include <string>
 #include <vector>
+#include <thread>
 
 #include "mpi.h"
 
@@ -134,14 +135,16 @@ int problem_4(int* argc, char** argv)
 
 	MPI_Bcast(&size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
-	A = new int[size]; memset(A, 0, size * sizeof(int));
-	B = new int[size]; memset(B, 0, size * sizeof(int));
+	A = new int[size]; std::memset(A, 0, size * sizeof(int));
+	B = new int[size]; std::memset(B, 0, size * sizeof(int));
 
 	if (thread == ZERO_PROCCESSOR)
 	{
-		srand(unsigned int(time(0)));
+		
+		srand(unsigned int(time(NULL)));
 		for (int i(0); i < size; i++)
 			A[i] = rand() % 20;
+
 
 		for (int i(0); i < size; i++)
 			cout << A[i] << " ";
@@ -150,7 +153,7 @@ int problem_4(int* argc, char** argv)
 
 	MPI_Scatter(A, size / thread_size, MPI_INT, B, size / thread_size, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
 
-	int* local_sum_all = new int[thread_size]; memset(local_sum_all, 0, thread_size * sizeof(int));
+	int* local_sum_all = new int[thread_size]; std::memset(local_sum_all, 0, thread_size * sizeof(int));
 	int local_sum = 0;
 
 	for (int j(0); j < size / thread_size; j++)
@@ -169,6 +172,99 @@ int problem_4(int* argc, char** argv)
 		for (int i(0); i < thread_size; i++)
 			result_local_sum += local_sum_all[i];
 		cout << result_local_sum << endl;
+	}
+
+	MPI_Finalize();
+
+	return 1;
+}
+
+int problem_5(int* argc, char** argv)
+{
+	int* A;
+	int* B;
+
+	int* a;
+	int* b;
+
+	int size = 0;
+	int sum = 0;
+
+	int thread, thread_size;
+
+	MPI_Init(argc, &argv);
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &thread);
+	MPI_Comm_size(MPI_COMM_WORLD, &thread_size);
+
+	size = int(pow(thread_size, 2));
+
+	MPI_Bcast(&size, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+	A = new int[size]; std::memset(A, 0, size * sizeof(int));
+	B = new int[size]; std::memset(B, 0, size * sizeof(int));
+	a = new int[size]; std::memset(a, 0, size * sizeof(int));
+	b = new int[size]; std::memset(b, 0, size * sizeof(int));
+
+	if (thread == ZERO_PROCCESSOR)
+	{
+		srand(unsigned int(time(NULL)));
+
+		for (int i(0); i < size; i++)
+			A[i] = rand() % 20;
+
+		for (int i(0); i < size; i++)
+			B[i] = rand() % 20;
+
+		cout << "Matrix A:\n";
+		for (int j(0); j < thread_size; j++)
+		{
+			for (int i(j * thread_size); i < thread_size * (j + 1); i++)
+				cout << A[i] << " ";
+			cout << endl;
+		}
+
+		cout << "\nMatrix B:\n";
+
+		for (int j(0); j < thread_size; j++)
+		{
+			for (int i(j* thread_size); i < thread_size * (j + 1); i++)
+				cout << B[i] << " ";
+			cout << endl;
+		}
+
+		cout << "==========================\n\n";
+	}
+
+	MPI_Scatter(A, thread_size, MPI_INT, a, thread_size, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+	MPI_Scatter(B, thread_size, MPI_INT, b, thread_size, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+
+	int* local_sum_all = new int[size]; std::memset(local_sum_all, 0, size * sizeof(int));
+	int* local_sum = new int[thread_size]; std::memset(local_sum, 0, thread_size * sizeof(int));
+
+	for (int j(0); j < thread_size; j++)
+		local_sum[j] += (a[j] + b[j]);
+
+	MPI_Gather(local_sum, thread_size, MPI_INT, local_sum_all, thread_size, MPI_INT, 0, MPI_COMM_WORLD);
+
+	if (thread == ZERO_PROCCESSOR)
+	{
+		cout << "Real solution:\n";
+		for (int j(0); j < thread_size; j++)
+		{
+			for (int i(j * thread_size); i < thread_size * (j + 1); i++)
+				cout << (A[i] + B[i]) << " ";
+			cout << endl;
+		}
+		
+		cout << "\n=====================\n\nParallel programming solution:\n";
+
+		for (int j(0); j < thread_size; j++)
+		{
+			for (int i(j * thread_size); i < thread_size * (j + 1); i++)
+				cout << local_sum_all[i] << " ";
+			cout << endl;
+		}
 	}
 
 	MPI_Finalize();
@@ -223,7 +319,7 @@ int main(int* argc, char** argv)
 		break;
 	}*/
 
-	problem_4(argc, argv);
+	problem_5(argc, argv);
 
 	return 1;
 }
