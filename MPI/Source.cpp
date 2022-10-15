@@ -112,7 +112,7 @@ void problem_3(int* argc, char** argv)
 	return;
 }
 
-int problem_4(int* argc, char** argv)
+void problem_4(int* argc, char** argv)
 {
 	int* A;
 	int* B;
@@ -175,11 +175,9 @@ int problem_4(int* argc, char** argv)
 	}
 
 	MPI_Finalize();
-
-	return 1;
 }
 
-int problem_5(int* argc, char** argv)
+void problem_5(int* argc, char** argv)
 {
 	int* A;
 	int* B;
@@ -265,8 +263,6 @@ int problem_5(int* argc, char** argv)
 	}
 
 	MPI_Finalize();
-
-	return 1;
 }
 
 int main(int* argc, char** argv)
