@@ -185,15 +185,20 @@ void problem_5(int* argc, char** argv)
 	int* a;
 	int* b;
 
-	int thread, thread_size;
+	int thread = 0, thread_size = 0, size = 0;
 
 	MPI_Init(argc, &argv);
 
 	MPI_Comm_rank(MPI_COMM_WORLD, &thread);
 	MPI_Comm_size(MPI_COMM_WORLD, &thread_size);
 
-	int size = int(pow(thread_size, 2));
+	if (thread == ZERO_PROCCESSOR)
+	{
+		cout << "Enter size matrix NxN: ";
+		cin >> size;
+	}
 
+	size *= size;
 	MPI_Bcast(&size, 1, MPI_INT, 0, MPI_COMM_WORLD);
 
 	A = new int[size]; std::memset(A, 0, size * sizeof(int));
@@ -206,60 +211,46 @@ void problem_5(int* argc, char** argv)
 		srand(unsigned int(time(NULL)));
 
 		for (int i(0); i < size; i++)
-			A[i] = rand() % 20;
+			A[i] = 1 + rand() % 20;
 
 		for (int i(0); i < size; i++)
-			B[i] = rand() % 20;
+			B[i] = 1 + rand() % 20;
 
 		cout << "Matrix A:\n";
-		for (int j(0); j < thread_size; j++)
-		{
-			for (int i(j * thread_size); i < thread_size * (j + 1); i++)
-				cout << A[i] << " ";
-			cout << endl;
-		}
+
+		for (int i(1); i <= size; i++)
+			cout << A[i - 1] << (i % int(sqrt(size)) == 0 ? "\n" : " ");
 
 		cout << "\nMatrix B:\n";
 
-		for (int j(0); j < thread_size; j++)
-		{
-			for (int i(j* thread_size); i < thread_size * (j + 1); i++)
-				cout << B[i] << " ";
-			cout << endl;
-		}
+		for (int i(1); i <= size; i++)
+			cout << B[i - 1] << (i % int(sqrt(size)) == 0 ? "\n" : " ");
 
 		cout << "==========================\n\n";
 	}
 
-	MPI_Scatter(A, thread_size, MPI_INT, a, thread_size, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
-	MPI_Scatter(B, thread_size, MPI_INT, b, thread_size, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+	MPI_Scatter(A, size / thread_size, MPI_INT, a, size / thread_size, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+	MPI_Scatter(B, size / thread_size, MPI_INT, b, size / thread_size, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
 
-	int* local_sum_all = new int[size]; std::memset(local_sum_all, 0, size * sizeof(int));
-	int* local_sum = new int[thread_size]; std::memset(local_sum, 0, thread_size * sizeof(int));
+	int* result = new int[size]; std::memset(result, 0, size * sizeof(int));
+	int* local_sum = new int[size / thread_size]; std::memset(local_sum, 0, (size / thread_size) * sizeof(int));
 
-	for (int j(0); j < thread_size; j++)
+	for (int j(0); j < size / thread_size; j++)
 		local_sum[j] += (a[j] + b[j]);
 
-	MPI_Gather(local_sum, thread_size, MPI_INT, local_sum_all, thread_size, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Gather(local_sum, size / thread_size, MPI_INT, result, size / thread_size, MPI_INT, 0, MPI_COMM_WORLD);
 
 	if (thread == ZERO_PROCCESSOR)
 	{
 		cout << "Real solution:\n";
-		for (int j(0); j < thread_size; j++)
-		{
-			for (int i(j * thread_size); i < thread_size * (j + 1); i++)
-				cout << (A[i] + B[i]) << " ";
-			cout << endl;
-		}
+
+		for (int i(1); i <= size; i++)
+			cout << A[i - 1] + B[i - 1] << (i % int(sqrt(size)) == 0 ? "\n" : " ");
 		
 		cout << "\n=====================\n\nParallel programming solution:\n";
 
-		for (int j(0); j < thread_size; j++)
-		{
-			for (int i(j * thread_size); i < thread_size * (j + 1); i++)
-				cout << local_sum_all[i] << " ";
-			cout << endl;
-		}
+		for (int i(1); i <= size; i++)
+			cout << result[i - 1] << (i % int(sqrt(size)) == 0 ? "\n" : " ");
 	}
 
 	MPI_Finalize();
