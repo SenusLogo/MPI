@@ -5,6 +5,7 @@
 #include <string>
 #include <vector>
 #include <thread>
+#include <iomanip>
 
 #include "mpi.h"
 
@@ -219,7 +220,7 @@ void problem_5(int* argc, char** argv)
 		cout << "Matrix A:\n";
 
 		for (int i(1); i <= size; i++)
-			cout << A[i - 1] << (i % int(sqrt(size)) == 0 ? "\n" : " ");
+			cout << setw(2) << A[i - 1] << (i % int(sqrt(size)) == 0 ? "\n" : " ");
 
 		cout << "\nMatrix B:\n";
 
@@ -251,6 +252,84 @@ void problem_5(int* argc, char** argv)
 
 		for (int i(1); i <= size; i++)
 			cout << result[i - 1] << (i % int(sqrt(size)) == 0 ? "\n" : " ");
+	}
+
+	MPI_Finalize();
+}
+
+void problem_6(int* argc, char** argv)
+{
+	int* A;
+	int* B;
+
+	int* a;
+	int* b;
+
+	int thread = 0, thread_size = 0, size_matrix = 0, size_vector = 0;
+
+	MPI_Init(argc, &argv);
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &thread);
+	MPI_Comm_size(MPI_COMM_WORLD, &thread_size);
+
+	if (thread == ZERO_PROCCESSOR)
+	{
+		cout << "Enter size matrix NxN: ";
+		cin >> size_vector;
+	}
+
+	size_matrix = int(pow(size_vector, 2));
+
+	MPI_Bcast(&size_vector, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&size_matrix, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+	A = new int[size_vector]; std::memset(A, 0, size_vector * sizeof(int));
+	B = new int[size_matrix]; std::memset(B, 0, size_matrix * sizeof(int));
+	b = new int[size_matrix]; std::memset(b, 0, size_matrix * sizeof(int));
+
+	if (thread == ZERO_PROCCESSOR)
+	{
+		srand(unsigned int(time(NULL)));
+
+		for (int i(0); i < size_vector; i++)
+			A[i] = 1 + rand() % 20;
+
+		for (int i(0); i < size_matrix; i++)
+			B[i] = 1 + rand() % 20;
+
+		cout << "\nMatrix:\n";
+
+		for (int i(1); i <= size_matrix; i++)
+			cout << B[i - 1] << (i % size_vector == 0 ? "\n" : " ");
+
+		cout << "\n\nVector:\n";
+
+		for (int i(0); i < size_vector; i++)
+			cout << A[i] << endl;
+
+		cout << "==========================\n\n";
+	}
+
+	MPI_Bcast(A, size_vector, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Scatter(B, size_matrix / thread_size, MPI_INT, b, size_matrix / thread_size, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+
+	int* result = new int[size_vector]; std::memset(result, 0, size_vector * sizeof(int));
+	int* local_sum = new int[size_vector / thread_size]; std::memset(local_sum, 0, (size_vector / thread_size) * sizeof(int));
+
+	for (int j(0); j < size_matrix / thread_size; j++)
+	{
+		cout << A[j % size_vector] << " * " << b[j] << " = " << A[j % size_vector] * b[j] << endl;
+		local_sum[j / thread_size] += A[j % size_vector] * b[j];
+	}
+
+	MPI_Gather(local_sum, size_vector / thread_size, MPI_INT, result, size_vector / thread_size, MPI_INT, 0, MPI_COMM_WORLD);
+
+	if (thread == ZERO_PROCCESSOR)
+	{
+		cout << "\n=====================\n\nParallel programming solution:\n";
+
+		for (int i(0); i < size_vector; i++)
+			cout << result[i] << " ";
 	}
 
 	MPI_Finalize();
@@ -303,7 +382,7 @@ int main(int* argc, char** argv)
 		break;
 	}*/
 
-	problem_5(argc, argv);
+	nikola(argc, argv);
 
 	return 1;
 }
