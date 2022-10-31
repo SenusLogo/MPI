@@ -14,6 +14,12 @@ using namespace std;
 #define ZERO_PROCCESSOR 0
 #define LAST_PROCESSOR(a) a - 1 // rofl
 
+template<typename A>
+bool Diagonal(A** matrix, int size)
+{
+
+}
+
 void problem_1(int* argc, char** argv)
 {
 	int thread, thread_size;
@@ -262,7 +268,6 @@ void problem_6(int* argc, char** argv)
 	int* A;
 	int* B;
 
-	int* a;
 	int* b;
 
 	int thread = 0, thread_size = 0, size_matrix = 0, size_vector = 0;
@@ -335,6 +340,141 @@ void problem_6(int* argc, char** argv)
 	MPI_Finalize();
 }
 
+void problem_7(int* argc, char** argv)
+{
+	int* A;
+	int* B;
+	int* D;
+
+	int* a;
+	int* b;
+	int* d;
+
+	int thread = 0, thread_size = 0, size_matrix = 0, size_vector = 0, iterations = 0;
+
+	double eps = 0.;
+
+	MPI_Init(argc, &argv);
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &thread);
+	MPI_Comm_size(MPI_COMM_WORLD, &thread_size);
+
+	if (thread == ZERO_PROCCESSOR)
+	{
+		cout << "Enter size matrix NxN: ";
+		cin >> size_vector;
+
+		cout << "Precision ( eps ) = ";
+		cin >> eps;
+	}
+
+	MPI_Bcast(&size_vector, 1, MPI_INT, 0, MPI_COMM_WORLD);
+
+	size_matrix = int(pow(size_vector, 2));
+
+	A = new int[size_vector]; std::memset(A, 0, size_vector * sizeof(int));
+	B = new int[size_matrix]; std::memset(B, 0, size_matrix * sizeof(int));
+	D = new int[size_vector]; std::memset(D, 0, size_vector * sizeof(int));
+	
+	if (thread == ZERO_PROCCESSOR)
+	{
+		srand(unsigned int(time(NULL)));
+
+		for (int i(0); i < size_vector; i++)
+			A[i] = -10 + rand() % 20;
+
+		
+		for (int i(0), l(0); i < size_matrix; i++)
+		{
+			if (i % (size_vector + 1) == 0)
+			{
+				B[i] = 30 + rand() % 50;
+				D[l++] = B[i];
+			}
+			else
+				B[i] = -10 + rand() % 20;			
+		}
+		
+		cout << "\nMatrix:\n";
+
+		for (int i(1); i <= size_matrix; i++)
+			cout << B[i - 1] << (i % size_vector == 0 ? "\n" : " ");
+
+		cout << "\n\nVector:\n";
+
+		for (int i(0); i < size_vector; i++)
+			cout << A[i] << endl;
+
+		cout << "==========================\n\n";
+	}
+
+	int N = size_vector / thread_size;
+	int M = size_matrix / thread_size;
+
+	a = new int[N]; std::memset(a, 0, N * sizeof(int));
+	d = new int[N]; std::memset(d, 0, N * sizeof(int));
+
+	b = new int[M]; std::memset(b, 0, M * sizeof(int));
+
+	MPI_Scatter(D, N, MPI_INT, d, N, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+	MPI_Scatter(A, N, MPI_INT, a, N, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+
+	MPI_Scatter(B, M, MPI_INT, b, M, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+	
+	double* X = new double[size_vector]; std::memset(X, 0, size_vector * sizeof(double));
+	double* TempX = new double[N]; std::memset(TempX, 0, N * sizeof(double));
+	double* TempX_all = new double[size_vector]; std::memset(TempX_all, 0, size_vector * sizeof(double));
+
+	while (++iterations < 100)
+	{
+		for (int k(0); k < N; k++)
+		{
+			TempX[k] = a[k];
+
+			for (int j(0); j < size_vector; j++)
+			{
+				if (b[j + k * size_vector] != d[k])
+					TempX[k] -= b[j + k * size_vector] * X[j];
+			}
+
+			TempX[k] /= d[k];
+		}
+
+
+		//Собираем все значение на процессорах, чтобы проверить норму
+		for (int i(0); i < thread_size; i++)
+			MPI_Gather(TempX, N, MPI_DOUBLE, TempX_all, N, MPI_DOUBLE, i, MPI_COMM_WORLD);
+
+		double norm = fabs(X[0] - TempX_all[0]);
+		for (int i(0); i < size_vector; i++)
+			if (fabs(X[i] - TempX_all[i]) > norm)
+				norm = fabs(X[i] - TempX_all[i]);
+
+		if (norm < eps)
+		{
+			cout << "Processor " << thread << " end job" << endl;
+
+			break;
+		}
+
+		//Отравляем промежуточные значения ко всем процессорам
+		for (int i(0); i < thread_size; i++)
+			MPI_Gather(TempX, N, MPI_DOUBLE, X, N, MPI_DOUBLE, i, MPI_COMM_WORLD);
+	}
+
+	if (thread == ZERO_PROCCESSOR)
+	{
+		cout << "Answer: ";
+
+		for (int i(0); i < size_vector; i++)
+			cout << X[i] << " ";
+
+		cout << "\n\nCount iterations: " << iterations << endl;
+	}
+
+	MPI_Finalize();
+}
+
 int main(int* argc, char** argv)
 {
 	SetConsoleCP(1251);
@@ -382,7 +522,7 @@ int main(int* argc, char** argv)
 		break;
 	}*/
 
-	nikola(argc, argv);
+	problem_7(argc, argv);
 
 	return 1;
 }
