@@ -6,6 +6,7 @@
 #include <vector>
 #include <thread>
 #include <iomanip>
+#include <omp.h>
 
 #include "mpi.h"
 
@@ -13,6 +14,9 @@ using namespace std;
 
 #define ZERO_PROCCESSOR 0
 #define LAST_PROCESSOR(a) a - 1 // rofl
+
+//a - timer in milliseconds
+#define Sleep(a) this_thread::sleep_for(chrono::milliseconds(a))
 
 template<typename A>
 bool Diagonal(A** matrix, int size)
@@ -369,6 +373,7 @@ void problem_7(int* argc, char** argv)
 	}
 
 	MPI_Bcast(&size_vector, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&eps, 1, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);
 
 	size_matrix = int(pow(size_vector, 2));
 
@@ -381,18 +386,18 @@ void problem_7(int* argc, char** argv)
 		srand(unsigned int(time(NULL)));
 
 		for (int i(0); i < size_vector; i++)
-			A[i] = -10 + rand() % 20;
+			A[i] = rand() % 20;
 
 		
 		for (int i(0), l(0); i < size_matrix; i++)
 		{
 			if (i % (size_vector + 1) == 0)
 			{
-				B[i] = 30 + rand() % 50;
+				B[i] = 100 + rand() % 20;
 				D[l++] = B[i];
 			}
 			else
-				B[i] = -10 + rand() % 20;			
+				B[i] = rand() % 20;			
 		}
 		
 		cout << "\nMatrix:\n";
@@ -425,7 +430,9 @@ void problem_7(int* argc, char** argv)
 	double* TempX = new double[N]; std::memset(TempX, 0, N * sizeof(double));
 	double* TempX_all = new double[size_vector]; std::memset(TempX_all, 0, size_vector * sizeof(double));
 
-	while (++iterations < 100)
+	double norm = 0.;
+
+	do
 	{
 		for (int k(0); k < N; k++)
 		{
@@ -440,27 +447,26 @@ void problem_7(int* argc, char** argv)
 			TempX[k] /= d[k];
 		}
 
+		MPI_Gather(TempX, N, MPI_DOUBLE, TempX_all, N, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);
 
-		//Собираем все значение на процессорах, чтобы проверить норму
-		for (int i(0); i < thread_size; i++)
-			MPI_Gather(TempX, N, MPI_DOUBLE, TempX_all, N, MPI_DOUBLE, i, MPI_COMM_WORLD);
-
-		double norm = fabs(X[0] - TempX_all[0]);
-		for (int i(0); i < size_vector; i++)
-			if (fabs(X[i] - TempX_all[i]) > norm)
-				norm = fabs(X[i] - TempX_all[i]);
-
-		if (norm < eps)
+		if (thread == ZERO_PROCCESSOR)
 		{
-			cout << "Processor " << thread << " end job" << endl;
+			norm = fabs(X[0] - TempX_all[0]);
+			for (int i(0); i < size_vector; i++)
+			{
+				if (fabs(X[i] - TempX_all[i]) > norm)
+					norm = fabs(X[i] - TempX_all[i]);
 
-			break;
+				X[i] = TempX_all[i];
+			}		
 		}
 
-		//Отравляем промежуточные значения ко всем процессорам
-		for (int i(0); i < thread_size; i++)
-			MPI_Gather(TempX, N, MPI_DOUBLE, X, N, MPI_DOUBLE, i, MPI_COMM_WORLD);
-	}
+		MPI_Bcast(&norm, 1, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+		MPI_Bcast(X, size_vector, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);	
+
+		iterations++;
+
+	} while (norm > eps);
 
 	if (thread == ZERO_PROCCESSOR)
 	{
