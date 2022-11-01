@@ -1,4 +1,4 @@
-#include <iostream>
+п»ї#include <iostream>
 #include <Windows.h>
 #include <time.h>
 #include <conio.h>
@@ -17,12 +17,6 @@ using namespace std;
 
 //a - timer in milliseconds
 #define Sleep(a) this_thread::sleep_for(chrono::milliseconds(a))
-
-template<typename A>
-bool Diagonal(A** matrix, int size)
-{
-
-}
 
 void problem_1(int* argc, char** argv)
 {
@@ -427,10 +421,13 @@ void problem_7(int* argc, char** argv)
 	MPI_Scatter(B, M, MPI_INT, b, M, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
 	
 	double* X = new double[size_vector]; std::memset(X, 0, size_vector * sizeof(double));
+	double* X_buff = new double[N]; std::memset(X_buff, 0, N * sizeof(double));
 	double* TempX = new double[N]; std::memset(TempX, 0, N * sizeof(double));
-	double* TempX_all = new double[size_vector]; std::memset(TempX_all, 0, size_vector * sizeof(double));
+
+	int* flags = new int[thread_size]; std::memset(flags, 0, thread_size * sizeof(int));
 
 	double norm = 0.;
+	int exit = 1;
 
 	do
 	{
@@ -447,26 +444,32 @@ void problem_7(int* argc, char** argv)
 			TempX[k] /= d[k];
 		}
 
-		MPI_Gather(TempX, N, MPI_DOUBLE, TempX_all, N, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+		MPI_Scatter(X, N, MPI_DOUBLE, X_buff, N, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);
 
-		if (thread == ZERO_PROCCESSOR)
+		double norm = fabs(X_buff[0] - TempX[0]);
+		for (int i(0); i < N; i++)
 		{
-			norm = fabs(X[0] - TempX_all[0]);
-			for (int i(0); i < size_vector; i++)
-			{
-				if (fabs(X[i] - TempX_all[i]) > norm)
-					norm = fabs(X[i] - TempX_all[i]);
+			if (fabs(X_buff[i] - TempX[i]) > norm)
+				norm = fabs(X_buff[i] - TempX[i]);
 
-				X[i] = TempX_all[i];
-			}		
+			X_buff[i] = TempX[i];
 		}
 
-		MPI_Bcast(&norm, 1, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);
-		MPI_Bcast(X, size_vector, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);	
+		int flag = norm < eps;
+
+		for (int i(0); i < thread_size; i++)
+		{
+			MPI_Gather(X_buff, N, MPI_DOUBLE, X, N, MPI_DOUBLE, i, MPI_COMM_WORLD);
+			MPI_Gather(&flag, 1, MPI_INT, flags, 1, MPI_INT, i, MPI_COMM_WORLD);
+		}
+
+		exit = 1;
+
+		for (int i(0); i < thread_size; i++)
+			exit *= flags[i];
 
 		iterations++;
-
-	} while (norm > eps);
+	} while (!exit);
 
 	if (thread == ZERO_PROCCESSOR)
 	{
@@ -478,15 +481,30 @@ void problem_7(int* argc, char** argv)
 		cout << "\n\nCount iterations: " << iterations << endl;
 	}
 
+	delete[] A;
+	delete[] B;
+	delete[] D;
+
+	delete[] a;
+	delete[] b;
+	delete[] d;
+
+	delete[] X;
+	delete[] X_buff;
+	delete[] TempX;
+	delete[] flags;
+
 	MPI_Finalize();
 }
 
 int main(int* argc, char** argv)
 {
+	setlocale(LC_ALL, "Russian");
+
 	SetConsoleCP(1251);
 	SetConsoleOutputCP(1251);
 
-	/*vector<string> menu = { "Практика 1", "Практика 2", "Практика 3", "Практика 4" };
+	/*vector<string> menu = { "РџСЂР°РєС‚РёРєР° 1", "РџСЂР°РєС‚РёРєР° 2", "РџСЂР°РєС‚РёРєР° 3", "РџСЂР°РєС‚РёРєР° 4" };
 
 	int iter = 0;
 	int choise = 0;
