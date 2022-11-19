@@ -497,6 +497,194 @@ void problem_7(int* argc, char** argv)
 	MPI_Finalize();
 }
 
+void problem_8(int* argc, char** argv)
+{
+	int thread = 0, thread_size = 0, size_matrix = 0, size_vector = 0, iterations = 0;
+
+	double eps = 0., h = 0.;
+
+	MPI_Init(argc, &argv);
+
+	MPI_Comm_rank(MPI_COMM_WORLD, &thread);
+	MPI_Comm_size(MPI_COMM_WORLD, &thread_size);
+
+	if (thread == ZERO_PROCCESSOR)
+	{
+		cout << "h: ";
+		cin >> h;
+
+		cout << "Precision ( eps ) = ";
+		cin >> eps;
+
+		size_vector = int(1. / h);
+	}
+
+	MPI_Bcast(&size_vector, 1, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Bcast(&eps, 1, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+
+	size_matrix = int(pow(size_vector, 2));
+
+	int N = size_vector / thread_size;
+	int M = size_matrix / thread_size;
+
+	//Формирование вектора b, A * u = b
+	int* B = new int[size_vector]; std::memset(B, 0, size_vector * sizeof(int));
+
+	if (thread == ZERO_PROCCESSOR)
+	{
+		for (int i(0); i < size_vector; i++)
+			B[i] = (i == 0 ? 1 : 0);
+	}
+
+	int* b = new int[N]; std::memset(b, 0, N * sizeof(int));
+	MPI_Scatter(B, N, MPI_INT, b, N, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+
+	//Выделение диагональных элементов для корректного решения метода Якоби.
+	int* D = new int[size_vector]; std::memset(D, 0, size_vector * sizeof(int));
+	for (int i(0); i < size_vector; i++)
+	{
+		if (i == 0 || i == size_vector - 1)
+			D[i] = 1;
+		else
+			D[i] = -2;
+	}
+
+	int* d = new int[size_vector]; memset(d, 0, size_vector * sizeof(int));
+	MPI_Scatter(D, N, MPI_INT, d, N, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+
+	//Формирование матрицы A, A * u = b
+	//Посредство распаралеливанием по процессорам
+	int* a = new int[M]; std::memset(a, 0, M * sizeof(int));
+	for (int i(thread * N); i < M; i += (size_vector + 1))
+	{
+		if (thread == 0 && i == 0)
+			a[0] = 1;
+		else if (thread == thread_size - 1 && i == M - 1)
+			a[M - 1] = 1;
+		else
+		{
+			a[i - 1] = 1;
+			a[i] = -2;
+			a[i + 1] = 1;
+		}
+	}
+
+	//Метод якоби из практической работы 7.
+	//--------------------------------------------------------------------------------------------------------
+	double* X = new double[size_vector]; std::memset(X, 0, size_vector * sizeof(double));
+	double* X_buff = new double[N]; std::memset(X_buff, 0, N * sizeof(double));
+	double* TempX = new double[N]; std::memset(TempX, 0, N * sizeof(double));
+
+	int* flags = new int[thread_size]; std::memset(flags, 0, thread_size * sizeof(int));
+
+	double norm = 0.;
+	int exit = 1;
+
+	do
+	{
+		for (int k(0); k < N; k++)
+		{
+			TempX[k] = b[k];
+
+			for (int j(0); j < size_vector; j++)
+			{
+				if (a[j + k * size_vector] != d[k])
+					TempX[k] -= a[j + k * size_vector] * X[j];
+			}
+
+			TempX[k] /= d[k];
+		}
+
+		MPI_Scatter(X, N, MPI_DOUBLE, X_buff, N, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);
+
+		double norm = fabs(X_buff[0] - TempX[0]);
+		for (int i(0); i < N; i++)
+		{
+			if (fabs(X_buff[i] - TempX[i]) > norm)
+				norm = fabs(X_buff[i] - TempX[i]);
+
+			X_buff[i] = TempX[i];
+		}
+
+		int flag = norm < eps;
+
+		for (int i(0); i < thread_size; i++)
+		{
+			MPI_Gather(X_buff, N, MPI_DOUBLE, X, N, MPI_DOUBLE, i, MPI_COMM_WORLD);
+			MPI_Gather(&flag, 1, MPI_INT, flags, 1, MPI_INT, i, MPI_COMM_WORLD);
+		}
+
+		exit = 1;
+
+		for (int i(0); i < thread_size; i++)
+			exit *= flags[i];
+
+		iterations++;
+	} while (!exit);
+	//Конец алгоритма
+	//----------------------------------------------------------------------------------------------------------
+
+	//Ответ. Проверка.
+	if (thread == ZERO_PROCCESSOR)
+	{
+		cout << "Answer: ";
+
+		for (int i(0); i < size_vector; i++)
+			cout << X[i] << ", ";
+
+		/*double* check = new double[size_vector]; memset(check, 0, size_vector * sizeof(double));
+		double* A = new double[size_matrix]; memset(A, 0, size_matrix * sizeof(double));
+
+		cout << endl;
+		for (int i(0); i < size_vector; i++)
+		{
+			if (i == 0)
+			{
+				A[i] = 1;
+				continue;
+			}
+
+			if (i == size_vector - 1)
+			{
+				A[size_matrix - 1] = 1;
+				break;
+			}
+
+			A[i * (size_vector + 1) - 1] = 1;
+			A[i * (size_vector + 1)] = -2;
+			A[i * (size_vector + 1) + 1] = 1;
+		}
+
+		for (int i(0); i < size_vector; i++)
+		{
+			check[i] = 0;
+
+			for (int j(0); j < size_vector; j++)
+				check[i] += A[i * size_vector + j] * X[j];
+		}
+
+		cout << "\nCheck:\n";
+		for (int i(0); i < size_vector; i++)
+			cout << check[i] << " ";
+		cout << endl;
+
+		cout << "\n\nCount iterations: " << iterations << endl;*/
+	}
+
+	//Освобождение выделенной памяти
+	delete[] B;
+
+	delete[] a;
+	delete[] b;
+
+	delete[] X;
+	delete[] X_buff;
+	delete[] TempX;
+	delete[] flags;
+
+	MPI_Finalize();
+}
+
 int main(int* argc, char** argv)
 {
 	setlocale(LC_ALL, "Russian");
@@ -504,49 +692,7 @@ int main(int* argc, char** argv)
 	SetConsoleCP(1251);
 	SetConsoleOutputCP(1251);
 
-	/*vector<string> menu = { "Практика 1", "Практика 2", "Практика 3", "Практика 4" };
-
-	int iter = 0;
-	int choise = 0;
-
-	_getch();
-	do
-	{
-		system("cls");
-		for (int i(0); i < menu.size(); i++)
-			cout << menu.at(i).c_str() << (i == choise ? "  <--- " : "") << endl;
-
-		iter = _getch();
-
-		switch (iter)
-		{
-		case 72:
-			choise = choise == 0 ? 3 : choise - 1;
-			break;
-		case 80:
-			choise = choise == 3 ? 0 : choise + 1;
-			break;
-		}
-
-	} while (choise != 13);
-
-	switch (choise)
-	{
-	case 0:
-		problem_1(argc, argv);
-		break;
-	case 1:
-		problem_2(argc, argv);
-		break;
-	case 2:
-		problem_3(argc, argv);
-		break;
-	case 3:
-		problem_4(argc, argv);
-		break;
-	}*/
-
-	problem_7(argc, argv);
+	problem_8(argc, argv);
 
 	return 1;
 }
