@@ -499,7 +499,7 @@ void problem_7(int* argc, char** argv)
 
 void problem_8(int* argc, char** argv)
 {
-	int thread = 0, thread_size = 0, size_matrix = 0, size_vector = 0, iterations = 0;
+	int thread = 0, thread_size = 0, size_vector = 0, iterations = 0;
 
 	double eps = 0., h = 0.;
 
@@ -522,60 +522,43 @@ void problem_8(int* argc, char** argv)
 	MPI_Bcast(&size_vector, 1, MPI_INT, 0, MPI_COMM_WORLD);
 	MPI_Bcast(&eps, 1, MPI_DOUBLE, ZERO_PROCCESSOR, MPI_COMM_WORLD);
 
-	size_matrix = int(pow(size_vector, 2));
-
 	int N = size_vector / thread_size;
-	int M = size_matrix / thread_size;
+	int M = int(pow(size_vector, 2)) / thread_size;
 
-	//Формирование вектора b, A * u = b
-	int* B = new int[size_vector]; std::memset(B, 0, size_vector * sizeof(int));
-
-	if (thread == ZERO_PROCCESSOR)
-	{
-		for (int i(0); i < size_vector; i++)
-			B[i] = (i == 0 ? 1 : 0);
-	}
-
-	int* b = new int[N]; std::memset(b, 0, N * sizeof(int));
-	MPI_Scatter(B, N, MPI_INT, b, N, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
-
-	//Выделение диагональных элементов для корректного решения метода Якоби.
-	int* D = new int[size_vector]; std::memset(D, 0, size_vector * sizeof(int));
-	for (int i(0); i < size_vector; i++)
-	{
-		if (i == 0 || i == size_vector - 1)
-			D[i] = 1;
-		else
-			D[i] = -2;
-	}
-
-	int* d = new int[size_vector]; memset(d, 0, size_vector * sizeof(int));
-	MPI_Scatter(D, N, MPI_INT, d, N, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
-
-	//Формирование матрицы A, A * u = b
+	//Формирование матрицы A и b, A * u = b
 	//Посредство распаралеливанием по процессорам
-	int* a = new int[M]; std::memset(a, 0, M * sizeof(int));
-	for (int i(thread * N); i < M; i += (size_vector + 1))
+	int* b = new int[N] {};
+	int* d = new int[N] {};
+	int* a = new int[M] {};
+	for (int i(thread * N), l(0); i < M; i += (size_vector + 1))
 	{
-		if (thread == 0 && i == 0)
+		if (i == 0)
+		{
 			a[0] = 1;
-		else if (thread == thread_size - 1 && i == M - 1)
+			b[0] = 1;
+			d[l++] = 1;			
+		}
+		else if (i == M - 1)
+		{
 			a[M - 1] = 1;
+			d[l] = 1;
+		}
 		else
 		{
 			a[i - 1] = 1;
 			a[i] = -2;
 			a[i + 1] = 1;
+			d[l++] = -2;
 		}
 	}
 
 	//Метод якоби из практической работы 7.
 	//--------------------------------------------------------------------------------------------------------
-	double* X = new double[size_vector]; std::memset(X, 0, size_vector * sizeof(double));
-	double* X_buff = new double[N]; std::memset(X_buff, 0, N * sizeof(double));
-	double* TempX = new double[N]; std::memset(TempX, 0, N * sizeof(double));
+	double* X = new double[size_vector] {};
+	double* X_buff = new double[N] {};
+	double* TempX = new double[N] {};
 
-	int* flags = new int[thread_size]; std::memset(flags, 0, thread_size * sizeof(int));
+	int* flags = new int[thread_size] {};
 
 	double norm = 0.;
 	int exit = 1;
@@ -629,51 +612,42 @@ void problem_8(int* argc, char** argv)
 	{
 		cout << "Answer: ";
 
-		for (int i(0); i < size_vector; i++)
+		for (int i(0); i < size_vector - 1; i++)
 			cout << X[i] << ", ";
+		cout << X[size_vector - 1];
 
-		/*double* check = new double[size_vector]; memset(check, 0, size_vector * sizeof(double));
-		double* A = new double[size_matrix]; memset(A, 0, size_matrix * sizeof(double));
+		cout << "\n\nCount iterations: " << iterations << endl;
 
-		cout << endl;
-		for (int i(0); i < size_vector; i++)
+		/*double* check = new double[size_vector]{};
+		double* A = new double[size_matrix * thread_size]{};
+
+		cout << "\n\n\n";
+		A[0] = 1; A[size_matrix * thread_size - 1] = 1;
+
+		for (int i(size_vector + 1); i < (size_matrix * thread_size) - size_vector; i += size_vector)
 		{
-			if (i == 0)
-			{
-				A[i] = 1;
-				continue;
-			}
-
-			if (i == size_vector - 1)
-			{
-				A[size_matrix - 1] = 1;
-				break;
-			}
-
-			A[i * (size_vector + 1) - 1] = 1;
-			A[i * (size_vector + 1)] = -2;
-			A[i * (size_vector + 1) + 1] = 1;
+			A[i - 1] = 1;
+			A[i] = -2;
+			A[i + 1] = 1;
 		}
 
 		for (int i(0); i < size_vector; i++)
 		{
-			check[i] = 0;
-
 			for (int j(0); j < size_vector; j++)
 				check[i] += A[i * size_vector + j] * X[j];
 		}
 
 		cout << "\nCheck:\n";
+		cout.precision(5);
 		for (int i(0); i < size_vector; i++)
 			cout << check[i] << " ";
 		cout << endl;
-
-		cout << "\n\nCount iterations: " << iterations << endl;*/
+		
+		delete[] check;
+		delete[] A;*/
 	}
 
 	//Освобождение выделенной памяти
-	delete[] B;
-
 	delete[] a;
 	delete[] b;
 
@@ -687,12 +661,6 @@ void problem_8(int* argc, char** argv)
 
 int main(int* argc, char** argv)
 {
-	setlocale(LC_ALL, "Russian");
-
-	SetConsoleCP(1251);
-	SetConsoleOutputCP(1251);
-
 	problem_8(argc, argv);
-
 	return 1;
 }
