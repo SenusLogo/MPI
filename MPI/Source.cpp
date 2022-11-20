@@ -7,6 +7,7 @@
 #include <thread>
 #include <iomanip>
 #include <omp.h>
+#include <fstream>
 
 #include "mpi.h"
 
@@ -510,11 +511,8 @@ void problem_8(int* argc, char** argv)
 
 	if (thread == ZERO_PROCCESSOR)
 	{
-		cout << "h: ";
-		cin >> h;
-
-		cout << "Precision ( eps ) = ";
-		cin >> eps;
+		cout << "h: "; cin >> h;
+		cout << "Precision ( eps ) = "; cin >> eps;
 
 		size_vector = int(1. / h);
 	}
@@ -607,7 +605,7 @@ void problem_8(int* argc, char** argv)
 	//Конец алгоритма
 	//----------------------------------------------------------------------------------------------------------
 
-	//Ответ. Проверка.
+	//Ответ. Проверка(закоментированна).
 	if (thread == ZERO_PROCCESSOR)
 	{
 		cout << "Answer: ";
@@ -615,6 +613,16 @@ void problem_8(int* argc, char** argv)
 		for (int i(0); i < size_vector - 1; i++)
 			cout << X[i] << ", ";
 		cout << X[size_vector - 1];
+
+		wstring filepath(L"C:\\Users\\Senus Ev'Ov\\source\\repos\\Graphics_generator\\Graphics_generator\\data.csv");
+
+		ofstream fout(filepath);
+		fout << "x" << "\n";
+
+		for (int i(0); i < size_vector; i++)
+			fout << X[i] << "\n";
+
+		fout.close();
 
 		cout << "\n\nCount iterations: " << iterations << endl;
 
