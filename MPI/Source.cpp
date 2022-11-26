@@ -700,26 +700,31 @@ void problem_9()
 	MPI_Scatter(B, size_matrix_2 / thread_size, MPI_INT, b, size_matrix_2 / thread_size, MPI_INT, ZERO_PROCCESSOR, MPI_COMM_WORLD);
 
 	int* result = new int[m * k] {};
-	int* local_result = new int[k] {};
+	int* local_result = new int[(m * k) / thread_size]{};
 
 	MPI_Status status;
 
-	for (int i(0), d(thread * (m > k ? m / k : k / m)); i < m; i++)
-	{	
-		for (int g(0); g < k / thread_size; g++, d = (d >= k - 1 ? 0 : d + 1))
+	for (int i(0), h(0), d(thread * (k / thread_size)); i < m / thread_size; i++, h = (h >= m / thread_size - 1 ? 0 : h + 1))
+	{
+		for (int g(0), f(0); g < k; g++, d = (d >= k - 1 ? 0 : d + 1), f = (f >= k / thread_size - 1 ? 0 : f + 1))
+		{
 			for (int j(0); j < l; j++)
-				local_result[d] += a[j] * b[g * l + j];
-				
+				local_result[h * k + d] += a[h * n + j] * b[f * l + j];
+			
 
-		right = (thread + 1) % thread_size;
-		left = thread - 1;
-		if (left < 0)
-			left = thread_size - 1;
+			if ((g + 1) % (k / thread_size) == 0)
+			{
+				right = (thread + 1) % thread_size;
+				left = thread - 1;
+				if (left < 0)
+					left = thread_size - 1;
 
-		MPI_Sendrecv_replace(b, size_matrix_2 / thread_size, MPI_INT, left, 0, right, 0, MPI_COMM_WORLD, &status);
+				MPI_Sendrecv_replace(b, size_matrix_2 / thread_size, MPI_INT, left, 0, right, 0, MPI_COMM_WORLD, &status);
+			}
+		}		
 	}
 
-	MPI_Gather(local_result, k, MPI_INT, result, k, MPI_INT, 0, MPI_COMM_WORLD);
+	MPI_Gather(local_result, (m * k) / thread_size, MPI_INT, result, (m * k) / thread_size, MPI_INT, 0, MPI_COMM_WORLD);
 
 	if (thread == ZERO_PROCCESSOR)
 	{
